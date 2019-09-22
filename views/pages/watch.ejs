@@ -1,0 +1,97 @@
+<% include ../partials/head %>
+  <body>
+    <nav class="nav">
+      <h4 class="text-white mr-3 pt-1 ml-3"><strong>Youtube App</strong></h4>
+      <a class="nav-link" href="">Restart</a>
+      <a class="nav-link" target="_blank" href="">Youtube</a>
+      <a class="nav-link" href="/back">Change video</a>
+    </nav>
+
+    <div id="youtube-wrapper" class="mt-4"><div id="player"></div></div>
+    <br />
+    <div class="container d-flex flex-row w-100 align-items-center">
+      <button id="playButton" class="btn btn-warning ml-1 mr-1">Play</button>
+      <button id="pauseButton" class="btn btn-warning ml-1 mr-1">Pause</button>
+      <input
+        id="slider"
+        class="flex-grow-1 ml-1 mr-1"
+        type="range"
+        min="0"
+        max="100"
+        value="0"
+        step="1"
+        oninput="changeTime(this.value)"
+      />
+    </div>
+    <script>
+      document.getElementsByTagName("a")[1].href =
+        "https://www.youtube.com/watch?v=" + "<%=url%>";
+      var tag = document.createElement("script");
+      tag.src = "https://www.youtube.com/iframe_api";
+      var firstScriptTag = document.getElementsByTagName("script")[0];
+      firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+      let socket = io();
+
+      const videoWidth = document.body.clientWidth * 0.7;
+      const videoHeight = videoWidth * 9 / 16;
+      
+      let player;
+      function onYouTubeIframeAPIReady() {
+        player = new YT.Player("player", {
+          height: Math.floor(videoHeight).toString(),
+          width: Math.floor(videoWidth).toString(),
+          playerVars: { 'autoplay': 1, 'controls': 0,'showInfo':0 },
+          videoId: "<%=url%>"
+        });
+      }
+
+      document.getElementById("playButton").addEventListener("click", () => {
+        let slider = document.getElementById("slider");
+        socket.emit("play");
+        player.playVideo();
+        setInterval(() => {
+          let currentTime =
+            (player.getCurrentTime() / player.getDuration()) * 100;
+          slider.value = currentTime;
+          socket.emit("slider", currentTime);
+        }, 200);
+      });
+      document.getElementById("pauseButton").addEventListener("click", () => {
+        socket.emit("pause");
+        player.pauseVideo();
+      });
+
+      function changeTime(sliderValue) {
+        slider.value = sliderValue;
+        let time = {
+          playerTime: (player.getDuration() * sliderValue) / 100,
+          sliderTime: sliderValue
+        };
+        socket.emit("update", time);
+        player.seekTo(time.playerTime, true);
+      }
+
+      socket.on("pause", () => {
+        player.pauseVideo();
+      });
+      socket.on("play", () => {
+        player.playVideo();
+      });
+      socket.on("slider", currentTime => {
+        slider.value = currentTime;
+      });
+      socket.on("update", time => {
+        console.log(time);
+        slider.value = time.sliderTime;
+        player.seekTo(time.playerTime, true);
+      });
+      socket.on("input", url => {
+        window.open(".", "_self");
+      });
+      socket.on("goBack", () => {
+        window.open("/", "_self");
+      });
+    </script>
+  </body>
+</html>
